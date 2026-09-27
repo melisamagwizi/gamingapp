@@ -14,7 +14,7 @@ async function page(opts) {
   await p.route("https://appassets.androidplatform.net/assets/**", r => { const f = r.request().url().split("/assets/")[1]; r.fulfill({ body: f === "app.js" ? js : readFileSync(A + f), contentType: f.endsWith(".js") ? "text/javascript" : "text/html" }); });
   await p.route("https://www.gstatic.com/**", r => r.fulfill({ body: fake, contentType: "text/javascript" }));
   await p.route("https://api.qrserver.com/**", r => r.fulfill({ status: 200, body: "" }));
-  await p.addInitScript(() => { window.__fb = { docs: {}, listeners: [], authCbs: [], user: null, seq: 0, users: { owner: { role: "master", displayName: "Owner" }, amy: { role: "staff", displayName: "Amy" } } }; window.confirm = () => true; });
+  await p.addInitScript(() => { window.__fb = { docs: {}, listeners: [], authCbs: [], user: null, seq: 0, users: { owner: { role: "master", displayName: "Owner" }, amy: { role: "staff", displayName: "Amy" } } }; });
   await p.goto("https://appassets.androidplatform.net/assets/index.html");
   return p;
 }
@@ -46,7 +46,9 @@ check("dashboard active count = 2", (await p.textContent("#count")) === "2");
 // Backdate first session by 95 minutes to check billing: 95 min × $2/h = $3.17
 await p.evaluate(() => { const s = Object.values(window.__fb.docs.sessions)[0]; const t = Date.now() - 95 * 60000 + 5000; s.startedAt = { toDate: () => new Date(t) }; window.__fb.listeners.forEach(l => l.run()); });
 check("live amount after 95 min = $3.17", (await p.textContent("#activeRows")).includes("$3.17"), (await p.textContent("#activeRows")).slice(0, 120));
-await p.click('#activeRows tr:has-text("Tino") button[data-act=finish]'); await p.waitForTimeout(100);
+await p.click('#activeRows tr:has-text("Tino") button[data-act=finish]');
+check("finish asks for confirmation with amount", (await p.textContent("#dlgMsg")).includes("$3.17"));
+await p.click("#dlgOk"); await p.waitForTimeout(100);
 check("finished session in Completed today", (await p.textContent("#doneRows")).includes("1h 35m") && (await p.textContent("#doneRows")).includes("$3.17"));
 check("revenue today = $3.17", (await p.textContent("#revenue")) === "$3.17");
 check("stored doc has no client total", await p.evaluate(() => !("total" in Object.values(window.__fb.docs.sessions)[0])));
@@ -74,9 +76,15 @@ await tab(p, "reports");
 check("report row with $3.17", (await p.textContent("#repRows")).includes("$3.17"));
 await tab(p, "vip");
 check("master can delete VIP", (await p.$$("#vipRows button.danger")).length === 1);
-await p.click("#vipRows button.danger"); await p.waitForTimeout(100);
+await p.click("#vipRows button.danger"); await p.click("#dlg button[value=cancel]"); await p.waitForTimeout(100);
+check("Back keeps the VIP", (await p.textContent("#vipRows")).includes("Rudo"));
+await p.click("#vipRows button.danger"); await p.click("#dlgOk"); await p.waitForTimeout(100);
 check("VIP deleted", !(await p.textContent("#vipRows")).includes("Rudo"));
 await tab(p, "sessions");
+await p.click('#activeRows tr:has-text("Kuda") button[data-act=cancel]'); await p.click("#dlgOk"); await p.waitForTimeout(100);
+check("cancel without reason does nothing", (await p.textContent("#activeRows")).includes("Kuda"));
+await p.click('#activeRows tr:has-text("Kuda") button[data-act=cancel]'); await p.fill("#dlgInput", "Left early"); await p.click("#dlgOk"); await p.waitForTimeout(100);
+check("cancel with reason removes session", !(await p.textContent("#activeRows")).includes("Kuda"));
 
 // PS4 promo logic: independent of phone timezone
 const promo = await p.evaluate(async () => {

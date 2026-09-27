@@ -1,0 +1,56 @@
+<style>
+:root{color-scheme:dark;--amber:#ffc53d;--bench:#15130c;--bline:#4a3f1c}
+#bench{background:var(--bench);border-bottom:2px dashed var(--bline);padding:14px 16px;font:14px system-ui,Arial,sans-serif;color:#f4ecd6}
+#bench .in{max-width:1150px;margin:auto;display:grid;gap:12px}
+#bench .top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+#bench .tag{font:700 12px ui-monospace,Menlo,monospace;letter-spacing:.12em;color:#1a1405;background:var(--amber);padding:3px 8px;border-radius:4px}
+#bench .note{color:#c9bd9a;font-size:13px}
+#bench .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+#bench .box{border:1px solid var(--bline);border-radius:10px;padding:10px 12px;display:grid;gap:8px;align-content:start}
+#bench .lbl{font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
+#bench .btns{display:flex;flex-wrap:wrap;gap:6px}
+#bench button{background:#221d0f;color:#f4ecd6;border:1px solid #5b4d22;border-radius:7px;padding:7px 10px;font:600 13px system-ui,Arial,sans-serif;cursor:pointer}
+#bench button:hover{border-color:var(--amber)}
+#bench button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#bench button[aria-pressed="true"]{background:var(--amber);color:#1a1405;border-color:var(--amber)}
+#bench .clock{font:700 22px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;color:#fff}
+#bench .sub{color:#c9bd9a;font-size:12px}
+#bench details{border:1px solid var(--bline);border-radius:10px;padding:8px 12px}
+#bench summary{cursor:pointer;font-weight:650;color:var(--amber)}
+#bench ol,#bench ul{margin:8px 0 2px;padding-left:20px;display:grid;gap:6px}
+#bench .try li{list-style:none;margin-left:-20px;display:flex;gap:8px;align-items:flex-start}
+#bench .try input{width:auto;margin-top:3px;accent-color:var(--amber)}
+#bench .log{max-height:180px;overflow:auto;font:12px ui-monospace,Menlo,monospace}
+#bench .log li{list-style:none;margin-left:-20px}
+#bench .ok{color:#7dff6a}#bench .no{color:#ff8a7a}
+@media (prefers-reduced-motion:no-preference){#bench .flash{animation:fl .8s}@keyframes fl{from{background:#4a3f1c}}}
+</style>
+<section id="bench" aria-label="Test panel">
+<div class="in">
+  <div class="top"><span class="tag">TEST MODE</span><span class="note">This is the real app code with a demo database in your browser. Nothing is sent to Firebase. The same security rules apply.</span></div>
+  <div class="grid">
+    <div class="box"><span class="lbl">Signed in as</span>
+      <div class="btns" id="bWho"><button data-u="owner">Owner (master)</button><button data-u="amy">Amy (staff)</button><button data-u="ben">Ben (staff)</button><button data-u="">Sign out</button></div>
+      <span class="sub">Or use the sign-in form: owner@demo.shop, amy@demo.shop or ben@demo.shop, password <b>demo</b>.</span></div>
+    <div class="box"><span class="lbl">Shop clock · Bulawayo</span>
+      <div><span class="clock" id="bClock">--:--</span> <span class="sub" id="bDay"></span></div>
+      <div class="btns"><button data-t="600000">+10 min</button><button data-t="3600000">+1 hour</button><button data-h="9">Next 09:00 (PS4 promo)</button><button data-h="14">Next 14:00</button><button id="bReal">Real time</button></div></div>
+    <div class="box"><span class="lbl">Security test</span>
+      <div class="btns"><button id="bTamper">Try to cut a live session's rate to $0.50</button></div>
+      <span class="sub">Simulates a tampered phone. Staff should be blocked; the owner is allowed. The result appears in the security log.</span>
+      <div class="btns"><button id="bReset">Reset demo data</button></div></div>
+  </div>
+  <details id="bTry"><summary>Things to try (<span id="bDone">0</span>/8)</summary>
+    <ul class="try">
+      <li><input type="checkbox" id="t1"><label for="t1">Sign in as <b>Amy</b>, open Sessions and start a PS5 session.</label></li>
+      <li><input type="checkbox" id="t2"><label for="t2">Tap <b>+1 hour</b>. The amount should reach about $2.00 for PS5.</label></li>
+      <li><input type="checkbox" id="t3"><label for="t3"><b>Finish</b> it. Check Completed today and the Dashboard's Revenue today.</label></li>
+      <li><input type="checkbox" id="t4"><label for="t4">Tap <b>Next 09:00</b>, then start a PS4 session. The rate should be $1.00/hr. At 14:00 it's $1.50.</label></li>
+      <li><input type="checkbox" id="t5"><label for="t5">Sign in as <b>Ben</b>. On Amy's session he gets Finish only, with no Edit or Cancel (shift handover).</label></li>
+      <li><input type="checkbox" id="t6"><label for="t6">As Ben, run the <b>security test</b>: it should be blocked. As Owner, it's allowed.</label></li>
+      <li><input type="checkbox" id="t7"><label for="t7">Save a VIP booking and a tournament. Staff can't delete them.</label></li>
+      <li><input type="checkbox" id="t8"><label for="t8">Sign in as <b>Owner</b>: check Reports and Audit, and delete a VIP booking.</label></li>
+    </ul></details>
+  <details id="bLogBox"><summary>Security log (<span id="bLogN">0</span>)</summary><ol class="log" id="bLog"></ol></details>
+</div>
+</section>

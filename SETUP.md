@@ -43,7 +43,7 @@ For Google Play distribution, create a signing key and build a signed release bu
 ## Tests
 `tests/` contains two automated suites that CI runs on every push:
 - `rules/` — 35 checks against the Firestore emulator (pricing lock, backdating blocked, role separation, audit integrity).
-- `ui/` — 27 end-to-end checks of the app in Chromium with an in-memory Firebase stand-in.
+- `ui/` — 31 end-to-end checks of the app in Chromium with an in-memory Firebase stand-in.
 
 Run locally with Node 22 and Java 17: `cd tests && npm install && npx playwright install chromium && npm test`.
 

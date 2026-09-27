@@ -60,6 +60,20 @@ function friendlyError(e) {
   return e?.message || "Something went wrong.";
 }
 
+// In-page dialog (native confirm/prompt are unreliable in WebViews). Resolves to the typed text
+// when `input` is given, otherwise true; resolves to null/false when dismissed.
+function ask({ title, message = "", input, ok = "OK", danger = false }) {
+  const dlg = $("dlg"), field = $("dlgInput");
+  $("dlgTitle").textContent = title; $("dlgMsg").textContent = message;
+  field.hidden = input === undefined; field.value = input ?? "";
+  $("dlgOk").textContent = ok; $("dlgOk").className = danger ? "danger" : "primary";
+  dlg.returnValue = ""; dlg.showModal(); if (input !== undefined) field.focus();
+  return new Promise(res => dlg.addEventListener("close", () => {
+    const yes = dlg.returnValue === "ok";
+    res(input === undefined ? yes : yes ? field.value : null);
+  }, { once: true }));
+}
+
 // Disable the clicked button while an async action runs, to prevent double submissions.
 async function busy(btn, fn) {
   if (btn) btn.disabled = true;
@@ -107,6 +121,7 @@ document.querySelectorAll("nav [data-tab]").forEach(b => b.onclick = () => {
 });
 $("console").onchange = () => $("xrateWrap").classList.toggle("hide", $("console").value !== "Xbox");
 $("mapLink").href = MAPS_URL;
+$("qr").onerror = () => $("qr").hidden = true;
 $("qr").src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(MAPS_URL);
 
 function clearListeners() { stopFns.forEach(f => f()); stopFns = []; }
@@ -147,22 +162,22 @@ $("startBtn").onclick = ev => {
 const sessionActions = {
   async finish(s) {
     const { total } = bill(s, new Date());
-    if (!confirm(`Finish ${s.player}'s session? Amount due ≈ ${money(total)}`)) return;
+    if (!(await ask({ title: "Finish session", message: `Finish ${s.player}'s session? Amount due now: ${money(total)}.`, ok: "Finish" }))) return;
     await updateDoc(doc(db, "sessions", s.id), { status: "finished", endedAt: serverTimestamp(), finishedBy: user.uid, updatedAt: serverTimestamp() });
     await log("session_finish", `${s.player} • ≈${money(total)}`);
     toast("Session finished. Collect " + money(total) + ".");
   },
   async edit(s) {
-    const name = prompt("Edit player name:", s.player);
-    if (name === null || !name.trim()) return;
-    const reason = prompt("Reason for change (required):");
+    const name = await ask({ title: "Rename player", input: s.player, ok: "Next" });
+    if (!name?.trim()) return;
+    const reason = await ask({ title: "Reason for change", message: "Required. Saved in the audit log.", input: "", ok: "Save" });
     if (!reason?.trim()) return toast("A reason is required.");
     await updateDoc(doc(db, "sessions", s.id), { player: name.trim().slice(0, 80), lastEditedBy: user.uid, lastEditReason: reason.trim().slice(0, 200), updatedAt: serverTimestamp() });
     await log("session_edit", `${s.player} → ${name.trim()}; ${reason.trim()}`);
     toast("Session updated.");
   },
   async cancel(s) {
-    const reason = prompt("Reason for cancellation (required):");
+    const reason = await ask({ title: "Cancel session", message: `Why is ${s.player}'s session being cancelled? Required. No charge is recorded.`, input: "", ok: "Cancel session", danger: true });
     if (!reason?.trim()) return;
     await updateDoc(doc(db, "sessions", s.id), { status: "cancelled", cancelledAt: serverTimestamp(), cancelReason: reason.trim().slice(0, 200), cancelledBy: user.uid, updatedAt: serverTimestamp() });
     await log("session_cancel", `${s.player}; ${reason.trim()}`);
@@ -188,7 +203,10 @@ $("vipBtn").onclick = ev => {
 $("vipRows").onclick = ev => {
   const btn = ev.target.closest("button[data-del]"); if (!btn || !isMaster()) return;
   const v = vips.find(x => x.id === btn.dataset.del);
-  if (v && confirm(`Delete the booking for ${v.name}?`)) busy(btn, async () => { await deleteDoc(doc(db, "vips", v.id)); await log("vip_deleted", `${v.name} • ${v.date}`); });
+  if (v) busy(btn, async () => {
+    if (!(await ask({ title: "Delete booking", message: `Delete the booking for ${v.name} on ${v.date}?`, ok: "Delete", danger: true }))) return;
+    await deleteDoc(doc(db, "vips", v.id)); await log("vip_deleted", `${v.name} • ${v.date}`);
+  });
 };
 
 $("eventBtn").onclick = ev => {
@@ -204,7 +222,10 @@ $("eventBtn").onclick = ev => {
 $("eventRows").onclick = ev => {
   const btn = ev.target.closest("button[data-del]"); if (!btn || !isMaster()) return;
   const e = events.find(x => x.id === btn.dataset.del);
-  if (e && confirm(`Delete ${e.name}?`)) busy(btn, async () => { await deleteDoc(doc(db, "events", e.id)); await log("event_deleted", `${e.name} • ${e.date}`); });
+  if (e) busy(btn, async () => {
+    if (!(await ask({ title: "Delete event", message: `Delete ${e.name} on ${e.date}?`, ok: "Delete", danger: true }))) return;
+    await deleteDoc(doc(db, "events", e.id)); await log("event_deleted", `${e.name} • ${e.date}`);
+  });
 };
 
 function render() {
