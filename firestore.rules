@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
+    function master() { return signedIn() && role() == 'master'; }
+    function staff() { return signedIn() && role() == 'staff'; }
+    function validRoleDoc() { return request.resource.data.role in ['master','staff']; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || master());
+      // Assign roles only through Firebase Console/Admin SDK, not client app.
+      allow create, update, delete: if false;
+    }
+    match /sessions/{id} {
+      allow read: if signedIn();
+      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'active';
+      allow update: if master() || (staff()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.status in ['active','finished','cancelled']);
+      allow delete: if false;
+    }
+    match /vips/{id} {
+      allow read: if signedIn();
+      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if master();
+    }
+    match /events/{id} {
+      allow read: if signedIn();
+      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if master();
+    }
+    match /audit/{id} {
+      allow read: if master();
+      allow create: if signedIn() && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

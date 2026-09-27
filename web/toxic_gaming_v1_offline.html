@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TOXIC GAMING | Shop Manager</title>
+<style>
+:root{--bg:#080b09;--panel:#111914;--green:#39ff14;--muted:#9ba99e;--line:#26372a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f2fff3;font:15px system-ui,Arial,sans-serif}
+header{padding:24px 18px;background:linear-gradient(130deg,#0a130c,#15251a);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:14px}.mark{width:62px;height:62px;border:2px solid var(--green);border-radius:50%;display:grid;place-items:center;font-size:30px;background:#050805}
+h1{margin:0;color:var(--green);letter-spacing:2px;font-size:clamp(24px,5vw,36px)}header p{margin:6px 0 0;color:var(--muted)}
+nav{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px;background:#0c110d;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--line)}
+nav button,.btn{background:#17231a;color:#eaffeb;border:1px solid #35533a;padding:10px 14px;border-radius:9px;cursor:pointer;font-weight:650}
+nav button.active,.btn.primary{background:var(--green);color:#071006;border-color:var(--green)}
+main{max-width:1100px;margin:auto;padding:20px 16px}.tab{display:none}.tab.active{display:block}
+h2{color:var(--green);margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px;margin-bottom:14px}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 5px}input,select,textarea{width:100%;padding:11px;border-radius:8px;border:1px solid #34483a;background:#080d09;color:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.price{font-size:25px;color:var(--green);font-weight:800}
+.small{color:var(--muted);font-size:13px}.badge{color:var(--green);border:1px solid #37663b;padding:3px 8px;border-radius:99px;font-size:12px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--green)}
+.tablewrap{overflow:auto}.danger{background:#351616;border-color:#743535}.actions{display:flex;gap:7px;flex-wrap:wrap}
+.notice{border-left:3px solid var(--green);padding:10px 13px;background:#101a12;color:#c8d9ca}
+footer{text-align:center;color:var(--muted);padding:28px 10px;border-top:1px solid var(--line)}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--green);color:#061006;padding:12px 18px;border-radius:10px;display:none;z-index:9}
+@media(max-width:560px){.row{grid-template-columns:1fr}nav{position:static}th,td{font-size:12px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="mark" aria-label="Toxic Gaming emblem">☠</div><div><h1>TOXIC GAMING</h1><p>Gaming Lounge • Bulawayo, Zimbabwe</p><p class="small">Luxor House, First Floor, Shop 13A</p></div></div></header>
+<nav>
+<button class="active" data-tab="dashboard">Dashboard</button><button data-tab="sessions">Play Sessions</button><button data-tab="vip">VIP Bookings</button><button data-tab="events">Events</button><button data-tab="payments">Payments & Location</button>
+</nav>
+<main>
+<section id="dashboard" class="tab active">
+<h2>Shop Dashboard</h2><div class="grid">
+<div class="card"><div class="small">Active sessions</div><div class="price" id="activeCount">0</div></div>
+<div class="card"><div class="small">Recorded session revenue</div><div class="price" id="revenue">$0.00</div></div>
+<div class="card"><div class="small">VIP bookings</div><div class="price" id="bookingCount">0</div></div>
+</div>
+<div class="grid">
+<div class="card"><h3>PlayStation 5</h3><div class="price">$2.00/hour</div><p class="small">Standard rate</p></div>
+<div class="card"><h3>PlayStation 4</h3><div class="price">$1.50/hour</div><p class="small">Standard rate • Promo rate $1/hour</p></div>
+<div class="card"><h3>Xbox</h3><div class="price">Set per session</div><p class="small">Enter the hourly price when starting a session.</p></div>
+</div>
+<div class="notice">Promotion: PlayStation 4 costs $1/hour and PlayStation 5 costs $2/hour during the 08:00–12:00 window. Rates are calculated by elapsed time, with the promo applied when a session starts during that window.</div>
+</section>
+<section id="sessions" class="tab">
+<h2>Play Sessions</h2>
+<div class="card"><h3>Start a session</h3>
+<div class="row"><div><label>Customer / player name</label><input id="player" placeholder="Player name"></div><div><label>Console</label><select id="console"><option>PlayStation 5</option><option>PlayStation 4</option><option>Xbox</option></select></div></div>
+<div class="row"><div><label>Console / station number</label><input id="station" placeholder="e.g. PS5-1"></div><div><label>Xbox hourly rate (USD, if Xbox)</label><input id="xrate" type="number" min="0" step=".25" placeholder="Enter rate"></div></div>
+<p class="small">The timer starts when you press Start. Press Finish when the player is done. The app calculates the amount using elapsed minutes.</p>
+<button class="btn primary" onclick="startSession()">Start session</button>
+</div>
+<div class="card"><h3>Active sessions</h3><div class="tablewrap"><table><thead><tr><th>Player / station</th><th>Console</th><th>Started</th><th>Elapsed</th><th>Rate</th><th>Amount so far</th><th></th></tr></thead><tbody id="activeRows"></tbody></table></div></div>
+<div class="card"><h3>Finished sessions</h3><div class="tablewrap"><table><thead><tr><th>Player</th><th>Console</th><th>Start – Finish</th><th>Duration</th><th>Amount</th></tr></thead><tbody id="finishedRows"></tbody></table></div></div>
+</section>
+<section id="vip" class="tab"><h2>VIP Bookings</h2><div class="card"><h3>Book a VIP</h3>
+<div class="row"><div><label>Customer name</label><input id="vipName"></div><div><label>Contact number</label><input id="vipPhone" placeholder="+263…"></div></div>
+<div class="row"><div><label>Date</label><input id="vipDate" type="date"></div><div><label>Start time</label><input id="vipTime" type="time"></div></div>
+<div class="row"><div><label>VIP / console</label><select id="vipType"><option>VIP Room</option><option>PlayStation 5</option><option>PlayStation 4</option><option>Xbox</option></select></div><div><label>Duration / notes</label><input id="vipNotes" placeholder="e.g. 2 hours, 3 players"></div></div>
+<button class="btn primary" onclick="addVip()">Save booking</button></div>
+<div class="card"><h3>Bookings list</h3><div class="tablewrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Date & time</th><th>VIP / console</th><th>Notes</th><th></th></tr></thead><tbody id="vipRows"></tbody></table></div></div>
+</section>
+<section id="events" class="tab"><h2>Tournaments & Playoffs</h2><div class="card"><h3>Register an event</h3>
+<div class="row"><div><label>Event name</label><input id="eventName" placeholder="e.g. FIFA Tournament"></div><div><label>Game / console</label><input id="eventGame" placeholder="e.g. EA SPORTS FC, PS5"></div></div>
+<div class="row"><div><label>Date</label><input id="eventDate" type="date"></div><div><label>Time</label><input id="eventTime" type="time"></div></div>
+<div class="row"><div><label>Entry fee (USD)</label><input id="eventFee" type="number" min="0" step=".5"></div><div><label>Maximum players</label><input id="eventCapacity" type="number" min="1"></div></div>
+<label>Details</label><textarea id="eventDetails" rows="3" placeholder="Rules, prizes, registration notes…"></textarea>
+<button class="btn primary" onclick="addEvent()">Save event</button></div>
+<div class="card"><h3>Upcoming / registered events</h3><div id="eventRows"></div></div>
+</section>
+<section id="payments" class="tab"><h2>Payments & Location</h2>
+<div class="grid"><div class="card"><h3>EcoCash payment</h3><div class="price">+263 77 514 3720</div><p>EcoCash number for customer payments.</p><div class="notice">Payment is recorded manually in this version. Confirm the EcoCash transaction in your merchant account before marking a session as paid. Live EcoCash checkout requires an approved payment integration.</div></div>
+<div class="card"><h3>Find Toxic Gaming</h3><p><b>Luxor House, First Floor, Shop 13A</b><br>Bulawayo, Zimbabwe</p><p class="small">Scan the QR code to open a map search for the shop address.</p><img id="qr" alt="QR code for Toxic Gaming location" style="width:210px;max-width:100%;background:white;padding:8px;border-radius:8px"><p><a class="btn primary" style="display:inline-block;text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=Luxor+House+Shop+13A+Bulawayo+Zimbabwe" target="_blank" rel="noopener">Open location in Maps</a></p></div></div>
+</section>
+</main>
+<footer>TOXIC GAMING • Black & Green Edition<br><span class="small">Software website build by Thando</span></footer><div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+let sessions=JSON.parse(localStorage.getItem('tg_sessions')||'[]'), finished=JSON.parse(localStorage.getItem('tg_finished')||'[]'), vips=JSON.parse(localStorage.getItem('tg_vips')||'[]'), events=JSON.parse(localStorage.getItem('tg_events')||'[]');
+function save(){localStorage.setItem('tg_sessions',JSON.stringify(sessions));localStorage.setItem('tg_finished',JSON.stringify(finished));localStorage.setItem('tg_vips',JSON.stringify(vips));localStorage.setItem('tg_events',JSON.stringify(events));render()}
+function money(n){return '$'+Number(n).toFixed(2)}
+function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2600)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')});
+function startSession(){let name=$('player').value.trim(), c=$('console').value;if(!name){toast('Enter the player name first.');return}let rate=c==='PlayStation 5'?2:c==='PlayStation 4'?1.5:Number($('xrate').value);if(!rate||rate<=0){toast('Enter a valid Xbox hourly rate.');return}
+let now=new Date(), h=now.getHours();if(c==='PlayStation 4'&&h>=8&&h<12)rate=1;
+sessions.push({id:Date.now(),name,console:c,station:$('station').value,started:now.toISOString(),rate});$('player').value='';$('station').value='';$('xrate').value='';save();toast('Session started.')}
+function amount(s){return Math.max(0,(Date.now()-new Date(s.started).getTime())/3600000*s.rate)}
+function finishSession(id){let s=sessions.find(x=>x.id===id);if(!s)return;let end=new Date(),mins=Math.max(1,Math.ceil((end-new Date(s.started))/60000));finished.unshift({...s,ended:end.toISOString(),minutes:mins,total:mins/60*s.rate});sessions=sessions.filter(x=>x.id!==id);save();toast('Session finished and amount recorded.')}
+function addVip(){if(!$('vipName').value.trim()||!$('vipDate').value){toast('Enter a customer name and booking date.');return}vips.push({id:Date.now(),name:$('vipName').value,phone:$('vipPhone').value,date:$('vipDate').value,time:$('vipTime').value,type:$('vipType').value,notes:$('vipNotes').value});save();['vipName','vipPhone','vipDate','vipTime','vipNotes'].forEach(x=>$(x).value='');toast('VIP booking saved.')}
+function addEvent(){if(!$('eventName').value.trim()||!$('eventDate').value){toast('Enter an event name and date.');return}events.push({id:Date.now(),name:$('eventName').value,game:$('eventGame').value,date:$('eventDate').value,time:$('eventTime').value,fee:$('eventFee').value,capacity:$('eventCapacity').value,details:$('eventDetails').value});save();['eventName','eventGame','eventDate','eventTime','eventFee','eventCapacity','eventDetails'].forEach(x=>$(x).value='');toast('Event saved.')}
+function del(arr,id){return arr.filter(x=>x.id!==id)}
+function render(){ $('activeCount').textContent=sessions.length;$('revenue').textContent=money(finished.reduce((a,s)=>a+s.total,0));$('bookingCount').textContent=vips.length;
+$('activeRows').innerHTML=sessions.map(s=>`<tr><td>${esc(s.name)}<br><span class="small">${esc(s.station||'')}</span></td><td>${esc(s.console)}</td><td>${new Date(s.started).toLocaleTimeString()}</td><td>${Math.floor((Date.now()-new Date(s.started))/60000)} min</td><td>${money(s.rate)}/hr</td><td>${money(amount(s))}</td><td><button class="btn primary" onclick="finishSession(${s.id})">Finish</button></td></tr>`).join('')||'<tr><td colspan="7">No active sessions.</td></tr>';
+$('finishedRows').innerHTML=finished.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.console)}</td><td>${new Date(s.started).toLocaleTimeString()} – ${new Date(s.ended).toLocaleTimeString()}</td><td>${Math.floor(s.minutes/60)}h ${s.minutes%60}m</td><td>${money(s.total)}</td></tr>`).join('')||'<tr><td colspan="5">No finished sessions yet.</td></tr>';
+$('vipRows').innerHTML=vips.map(v=>`<tr><td>${esc(v.name)}</td><td>${esc(v.phone)}</td><td>${esc(v.date)} ${esc(v.time)}</td><td>${esc(v.type)}</td><td>${esc(v.notes)}</td><td><button class="btn danger" onclick="vips=del(vips,${v.id});save()">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No bookings yet.</td></tr>';
+$('eventRows').innerHTML=events.map(e=>`<div class="card"><div class="actions"><h3 style="margin:0">${esc(e.name)}</h3><span class="badge">${esc(e.date)} ${esc(e.time)}</span></div><p>${esc(e.game)} • Entry: ${money(e.fee||0)} • Capacity: ${esc(e.capacity||'—')}</p><p>${esc(e.details)}</p><button class="btn danger" onclick="events=del(events,${e.id});save()">Delete event</button></div>`).join('')||'<p class="small">No events registered yet.</p>'}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const qrurl='https://www.google.com/maps/search/?api=1&query=Luxor+House+Shop+13A+Bulawayo+Zimbabwe';
+$('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(qrurl);
+render();setInterval(render,15000);
+</script></body></html>
