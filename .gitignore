@@ -9,3 +9,4 @@ captures/
 tests/node_modules/
 *-debug.log
 demo/toxic-gaming-demo.html
+apk/
