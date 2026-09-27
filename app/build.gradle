@@ -1,6 +1,33 @@
-plugins { id 'com.android.application' }
+plugins {
+    id 'com.android.application'
+}
+
 android {
     namespace 'com.toxicgaming.app'
     compileSdk 35
-    defaultConfig { applicationId 'com.toxicgaming.app'; minSdk 23; targetSdk 35; versionCode 2; versionName '2.0' }
+
+    defaultConfig {
+        applicationId 'com.toxicgaming.app'
+        minSdk 23
+        targetSdk 35
+        versionCode 3
+        versionName '2.1'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Serves bundled assets over https://appassets.androidplatform.net so ES modules
+    // and Firebase work (file:// URLs block module scripts and have a null origin).
+    implementation 'androidx.webkit:webkit:1.12.1'
 }

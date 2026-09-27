@@ -1,0 +1,16 @@
+{
+  "name": "toxic-gaming-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "cd .. && tests/node_modules/.bin/firebase emulators:exec --only firestore --project tg-test \"node tests/rules/rules.test.mjs\"",
+    "test:ui": "node ui/ui.test.mjs",
+    "test": "npm run test:rules && npm run test:ui"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.0.0",
+    "firebase-tools": "^13.35.1",
+    "playwright": "^1.55.0"
+  }
+}

@@ -2,39 +2,115 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
+    function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function role() { return exists(userDoc()) ? get(userDoc()).data.role : ''; }
     function master() { return signedIn() && role() == 'master'; }
     function staff() { return signedIn() && role() == 'staff'; }
-    function validRoleDoc() { return request.resource.data.role in ['master','staff']; }
+    function member() { return master() || staff(); }
+
+    function text(v, max) { return v is string && v.size() <= max; }
+    function required(v, max) { return text(v, max) && v.size() > 0; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // Shop rates. The PS4 promo runs 08:00-12:00 in Bulawayo (Africa/Harare, UTC+2, no DST),
+    // which is 06:00-10:00 UTC. A 2-minute grace either side absorbs device/server clock drift.
+    function utcMinute() { return request.time.hours() * 60 + request.time.minutes(); }
+    function ps4RateOk(rate) {
+      return (rate == 1 && utcMinute() >= 358 && utcMinute() < 602)
+        || (rate == 1.5 && (utcMinute() < 362 || utcMinute() >= 598));
+    }
+    function validRate(d) {
+      return (d.console == 'PlayStation 5' && d.rate == 2)
+        || (d.console == 'PlayStation 4' && ps4RateOk(d.rate))
+        || (d.console == 'Xbox' && d.rate is number && d.rate > 0 && d.rate <= 50);
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || master());
-      // Assign roles only through Firebase Console/Admin SDK, not client app.
+      // Assign roles only through Firebase Console/Admin SDK, never from the app.
       allow create, update, delete: if false;
     }
+
+    // Money is never written by the app: amounts are derived from the server-set
+    // startedAt/endedAt timestamps and the locked rate, so they cannot be edited down.
     match /sessions/{id} {
-      allow read: if signedIn();
-      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.status == 'active';
-      allow update: if master() || (staff()
-        && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.status in ['active','finished','cancelled']);
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['player','console','station','rate','status','createdBy','staffName','startedAt','createdAt','updatedAt'])
+        && required(request.resource.data.player, 80)
+        && text(request.resource.data.station, 30)
+        && text(request.resource.data.staffName, 80)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.startedAt == request.time
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validRate(request.resource.data);
+
+      allow update: if master() || (staff() && resource.data.status == 'active'
+        && request.resource.data.updatedAt == request.time
+        && (
+          // Any staff member on shift can finish any active session.
+          (changed().hasOnly(['status','endedAt','finishedBy','updatedAt'])
+            && request.resource.data.status == 'finished'
+            && request.resource.data.endedAt == request.time
+            && request.resource.data.finishedBy == request.auth.uid)
+          // Only the staff member who started a session may rename or cancel it.
+          || (resource.data.createdBy == request.auth.uid
+            && changed().hasOnly(['player','lastEditedBy','lastEditReason','updatedAt'])
+            && required(request.resource.data.player, 80)
+            && required(request.resource.data.lastEditReason, 200)
+            && request.resource.data.lastEditedBy == request.auth.uid)
+          || (resource.data.createdBy == request.auth.uid
+            && changed().hasOnly(['status','cancelledAt','cancelReason','cancelledBy','updatedAt'])
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.cancelledAt == request.time
+            && required(request.resource.data.cancelReason, 200)
+            && request.resource.data.cancelledBy == request.auth.uid)
+        ));
       allow delete: if false;
     }
+
     match /vips/{id} {
-      allow read: if signedIn();
-      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid;
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['name','phone','date','time','type','notes','createdBy','createdAt'])
+        && required(request.resource.data.name, 80)
+        && required(request.resource.data.date, 10)
+        && text(request.resource.data.phone, 30)
+        && text(request.resource.data.time, 5)
+        && text(request.resource.data.type, 30)
+        && text(request.resource.data.notes, 300)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if master();
     }
+
     match /events/{id} {
-      allow read: if signedIn();
-      allow create: if (staff() || master()) && request.resource.data.createdBy == request.auth.uid;
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['name','game','date','time','fee','capacity','details','createdBy','createdAt'])
+        && required(request.resource.data.name, 100)
+        && required(request.resource.data.date, 10)
+        && text(request.resource.data.game, 100)
+        && text(request.resource.data.time, 5)
+        && text(request.resource.data.details, 1000)
+        && request.resource.data.fee is number && request.resource.data.fee >= 0
+        && request.resource.data.capacity is number && request.resource.data.capacity >= 0
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if master();
     }
+
     match /audit/{id} {
       allow read: if master();
-      allow create: if signedIn() && request.resource.data.actorUid == request.auth.uid;
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['action','detail','actorUid','actorName','createdAt'])
+        && required(request.resource.data.action, 40)
+        && text(request.resource.data.detail, 400)
+        && text(request.resource.data.actorName, 80)
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }
   }

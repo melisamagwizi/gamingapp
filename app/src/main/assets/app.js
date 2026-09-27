@@ -1,7 +1,8 @@
-// Toxic Gaming 2.0 Firebase client. Add your Firebase project's web config below.
+// Toxic Gaming 2.0 Firebase client. Add your Firebase project's web config below (see SETUP.md).
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
 const firebaseConfig = {
   apiKey: "REPLACE_WITH_FIREBASE_API_KEY",
   authDomain: "REPLACE_WITH_PROJECT.firebaseapp.com",
@@ -10,35 +11,240 @@ const firebaseConfig = {
   messagingSenderId: "REPLACE_WITH_SENDER_ID",
   appId: "REPLACE_WITH_APP_ID"
 };
-const configured=!firebaseConfig.apiKey.startsWith("REPLACE_");
-let auth,db,user=null,profile=null,stopFns=[],sessions=[],finished=[],vips=[],events=[],audit=[];
-const $=id=>document.getElementById(id), money=n=>"$"+Number(n||0).toFixed(2);
-function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2800)}
-function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-if(configured){const fb=initializeApp(firebaseConfig);auth=getAuth(fb);db=getFirestore(fb);onAuthStateChanged(auth,async u=>{if(!u){clearListeners();user=null;profile=null;$("login").classList.remove("hide");$("appUI").classList.add("hide");$("who").textContent="Not signed in";return}user=u;const snap=await getDoc(doc(db,"users",u.uid));if(!snap.exists()){toast("Account role is not configured. Ask the owner.");await signOut(auth);return}profile=snap.data();if(!["master","staff"].includes(profile.role)){toast("Account role invalid.");await signOut(auth);return}$("login").classList.add("hide");$("appUI").classList.remove("hide");$("who").textContent=(profile.displayName||u.email)+" • "+profile.role.toUpperCase();document.querySelectorAll(".master-only").forEach(x=>x.classList.toggle("hide",profile.role!=="master"));listenAll();});}
-else { $("login").insertAdjacentHTML("beforeend",'<p style="color:#ffb3a8">Firebase setup is required before login works. Follow SETUP.md in the project ZIP.</p>'); }
-window.login=async()=>{if(!configured)return toast("Firebase is not configured yet.");try{await signInWithEmailAndPassword(auth,$("email").value,$("password").value)}catch(e){toast(e.message)}};
-window.resetPass=async()=>{if(!configured)return toast("Configure Firebase first.");if(!$("email").value)return toast("Enter your email.");try{await sendPasswordResetEmail(auth,$("email").value);toast("Password reset email sent.")}catch(e){toast(e.message)}};
-window.logout=()=>signOut(auth);
-document.querySelectorAll("nav [data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav [data-tab],.tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");$(b.dataset.tab).classList.add("active")});
-function clearListeners(){stopFns.forEach(f=>f());stopFns=[]}
-function listenAll(){clearListeners();const watch=(name,cb,sort="createdAt")=>stopFns.push(onSnapshot(query(collection(db,name),orderBy(sort,"desc")),s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),e=>toast("Sync error: "+e.message)));
-watch("sessions",a=>{sessions=a.filter(x=>x.status==="active");finished=a.filter(x=>x.status==="finished");render()});
-watch("vips",a=>{vips=a;render()});watch("events",a=>{events=a;render()});if(profile.role==="master")watch("audit",a=>{audit=a;render()});}
-function rateFor(c,started,xrate){if(c==="PlayStation 5")return 2;if(c==="PlayStation 4"){let d=new Date(started);return d.getHours()>=8&&d.getHours()<12?1:1.5}return Number(xrate)}
-window.startSession=async()=>{let name=$("player").value.trim(),c=$("console").value,now=new Date();if(!name)return toast("Enter player name.");let rate=rateFor(c,now,$("xrate").value);if(!rate||rate<=0)return toast("Enter a valid Xbox rate.");try{await addDoc(collection(db,"sessions"),{player:name,console:c,station:$("station").value,startedAt:now.toISOString(),rate,status:"active",createdBy:user.uid,staffName:profile.displayName||user.email,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});await log("session_start",name+" • "+c);$("player").value="";$("station").value="";$("xrate").value="";toast("Session started and synced.")}catch(e){toast(e.message)}};
-async function log(action,detail){try{await addDoc(collection(db,"audit"),{action,detail,actorUid:user.uid,actorName:profile.displayName||user.email,createdAt:serverTimestamp()})}catch(e){console.warn(e)}}
-window.finishSession=async id=>{let s=sessions.find(x=>x.id===id);if(!s)return;let end=new Date(),mins=Math.max(1,Math.ceil((end-new Date(s.startedAt))/60000)),total=mins/60*Number(s.rate);try{await updateDoc(doc(db,"sessions",id),{status:"finished",endedAt:end.toISOString(),minutes:mins,total,updatedAt:serverTimestamp(),finishedBy:user.uid});await log("session_finish",s.player+" • "+money(total));toast("Session finished.")}catch(e){toast(e.message)}};
-window.editSession=async id=>{let s=sessions.find(x=>x.id===id);if(!s)return;let newName=prompt("Edit player name:",s.player);if(newName===null)return;let note=prompt("Reason for change (required):");if(!note?.trim())return toast("A reason is required.");try{await updateDoc(doc(db,"sessions",id),{player:newName.trim(),updatedAt:serverTimestamp(),lastEditedBy:user.uid,lastEditReason:note});await log("session_edit",s.player+" → "+newName+"; "+note);toast("Session updated.")}catch(e){toast(e.message)}};
-window.cancelSession=async id=>{let s=sessions.find(x=>x.id===id);if(!s)return;let reason=prompt("Reason for cancellation (required):");if(!reason?.trim())return;try{await updateDoc(doc(db,"sessions",id),{status:"cancelled",cancelledAt:new Date().toISOString(),cancelReason:reason,updatedAt:serverTimestamp(),cancelledBy:user.uid});await log("session_cancel",s.player+"; "+reason);toast("Session cancelled.")}catch(e){toast(e.message)}};
-window.addVip=async()=>{if(!$("vn").value.trim()||!$("vd").value)return toast("Enter customer and date.");try{await addDoc(collection(db,"vips"),{name:$("vn").value,phone:$("vp").value,date:$("vd").value,time:$("vt").value,type:$("vtype").value,notes:$("vnotes").value,createdBy:user.uid,createdAt:serverTimestamp()});await log("vip_created",$("vn").value);toast("VIP booking saved.");["vn","vp","vd","vt","vnotes"].forEach(i=>$(i).value="")}catch(e){toast(e.message)}};
-window.addEvent=async()=>{if(!$("en").value.trim()||!$("ed").value)return toast("Enter event and date.");try{await addDoc(collection(db,"events"),{name:$("en").value,game:$("eg").value,date:$("ed").value,time:$("et").value,fee:Number($("ef").value||0),details:$("edetail").value,createdBy:user.uid,createdAt:serverTimestamp()});await log("event_created",$("en").value);toast("Event saved.")}catch(e){toast(e.message)}};
-window.deleteEvent=async id=>{if(profile.role!=="master")return;try{await deleteDoc(doc(db,"events",id));await log("event_deleted",id)}catch(e){toast(e.message)}};
-function elapsed(s){return Math.max(0,Math.floor((Date.now()-new Date(s.startedAt))/60000))}
-function render(){let active=sessions,done=finished;$("count").textContent=active.length;$("revenue").textContent=money(done.reduce((a,s)=>a+Number(s.total||0),0));$("vcount").textContent=vips.length;
-$("activeRows").innerHTML=active.map(s=>{let own=s.createdBy===user?.uid, can=profile?.role==="master"||own;return `<tr><td>${esc(s.player)}<br><span class="muted">${esc(s.station||"")}</span></td><td>${esc(s.console)}</td><td>${new Date(s.startedAt).toLocaleTimeString()}</td><td>${elapsed(s)} min</td><td>${money(s.rate)}/hr</td><td>${money(elapsed(s)/60*s.rate)}</td><td>${can?`<button onclick="finishSession('${s.id}')">Finish</button> <button onclick="editSession('${s.id}')">Edit</button> <button class="danger" onclick="cancelSession('${s.id}')">Cancel</button>`:"—"}</td></tr>`}).join("")||'<tr><td colspan="7">No active sessions.</td></tr>';
-$("doneRows").innerHTML=done.slice(0,150).map(s=>`<tr><td>${esc(s.player)}</td><td>${esc(s.console)}</td><td>${new Date(s.startedAt).toLocaleTimeString()} / ${s.endedAt?new Date(s.endedAt).toLocaleTimeString():"—"}</td><td>${Math.floor((s.minutes||0)/60)}h ${(s.minutes||0)%60}m</td><td>${money(s.total)}</td><td>${esc(s.staffName||"")}</td></tr>`).join("")||'<tr><td colspan="6">No completed sessions.</td></tr>';
-$("vipRows").innerHTML=vips.map(v=>`<div class="card"><b>${esc(v.name)}</b> • ${esc(v.type)}<p>${esc(v.date)} ${esc(v.time)} • ${esc(v.phone)} • ${esc(v.notes)}</p></div>`).join("")||'<p class="muted">No bookings yet.</p>';
-$("eventRows").innerHTML=events.map(e=>`<div class="card"><b>${esc(e.name)}</b><p>${esc(e.game)} • ${esc(e.date)} ${esc(e.time)} • Entry ${money(e.fee)}</p><p>${esc(e.details)}</p>${profile?.role==="master"?`<button class="danger" onclick="deleteEvent('${e.id}')">Delete</button>`:""}</div>`).join("")||'<p class="muted">No events registered.</p>';
-if(profile?.role==="master"){$("auditRows").innerHTML=audit.map(a=>`<p>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString():""} — <b>${esc(a.action)}</b> — ${esc(a.actorName)}: ${esc(a.detail)}</p>`).join("")||"No audit entries yet.";$("repTotal").textContent=$("revenue").textContent;$("repRows").innerHTML=done.map(s=>`<p>${esc(s.player)} · ${esc(s.console)} · ${money(s.total)}</p>`).join("")}}
-setInterval(()=>{if(user)render()},15000);
+
+// Shop pricing. Keep in sync with validRate() in firestore.rules.
+const SHOP_TZ = "Africa/Harare";
+const RATES = { "PlayStation 5": 2, "PlayStation 4": 1.5 };
+const PS4_PROMO_RATE = 1, PROMO_START_HOUR = 8, PROMO_END_HOUR = 12;
+const MAPS_URL = "https://www.google.com/maps/search/?api=1&query=Luxor+House+Shop+13A+Bulawayo+Zimbabwe";
+
+const configured = !firebaseConfig.apiKey.startsWith("REPLACE_");
+let auth, db, user = null, profile = null, stopFns = [];
+let sessions = [], vips = [], events = [], audit = [];
+
+const $ = id => document.getElementById(id);
+const money = n => "$" + Number(n || 0).toFixed(2);
+const isMaster = () => profile?.role === "master";
+const actorName = () => (profile?.displayName || user?.email || "").slice(0, 80);
+
+function toast(s) { $("toast").textContent = s; $("toast").style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => $("toast").style.display = "none", 3200); }
+function esc(v) { return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function toDate(v) { return v?.toDate ? v.toDate() : v ? new Date(v) : null; }
+function timeStr(d) { return d ? d.toLocaleTimeString([], { timeZone: SHOP_TZ, hour: "2-digit", minute: "2-digit" }) : "—"; }
+
+// Shop-local calendar day (YYYY-MM-DD) and hour, independent of the phone's timezone setting.
+const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: SHOP_TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+const hourFmt = new Intl.DateTimeFormat("en-GB", { timeZone: SHOP_TZ, hour: "2-digit", hourCycle: "h23" });
+const shopDay = d => dayFmt.format(d);
+const shopHour = d => Number(hourFmt.format(d));
+
+function rateFor(consoleName, when, xrate) {
+  if (consoleName === "PlayStation 4") { const h = shopHour(when); return h >= PROMO_START_HOUR && h < PROMO_END_HOUR ? PS4_PROMO_RATE : RATES[consoleName]; }
+  return RATES[consoleName] ?? Number(xrate);
+}
+
+// Charge per started minute (minimum 1) between the server-set start and end times.
+function bill(s, end) {
+  const start = toDate(s.startedAt);
+  if (!start || !end) return { minutes: 0, total: 0 };
+  const minutes = Math.max(1, Math.ceil((end - start) / 60000));
+  return { minutes, total: Math.round(minutes / 60 * Number(s.rate) * 100) / 100 };
+}
+
+function friendlyError(e) {
+  const code = e?.code || "";
+  if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) return "Incorrect email or password.";
+  if (code.includes("too-many-requests")) return "Too many attempts. Try again in a few minutes.";
+  if (code.includes("network")) return "No internet connection.";
+  if (code.includes("permission-denied")) return "Not allowed. Check your role, or the phone's date and time.";
+  return e?.message || "Something went wrong.";
+}
+
+// Disable the clicked button while an async action runs, to prevent double submissions.
+async function busy(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(friendlyError(e)); } finally { if (btn) btn.disabled = false; }
+}
+
+if (configured) {
+  const fb = initializeApp(firebaseConfig);
+  auth = getAuth(fb); db = getFirestore(fb);
+  onAuthStateChanged(auth, async u => {
+    if (!u) {
+      clearListeners(); user = null; profile = null; sessions = vips = events = audit = [];
+      $("login").classList.remove("hide"); $("appUI").classList.add("hide"); $("who").textContent = "Not signed in";
+      return;
+    }
+    user = u;
+    try {
+      const snap = await getDoc(doc(db, "users", u.uid));
+      profile = snap.exists() ? snap.data() : null;
+    } catch (e) { profile = null; }
+    if (!profile || !["master", "staff"].includes(profile.role)) { toast("This account has no role yet. Ask the owner to set it up."); await signOut(auth); return; }
+    $("login").classList.add("hide"); $("appUI").classList.remove("hide");
+    $("who").textContent = actorName() + " • " + profile.role.toUpperCase();
+    document.querySelectorAll(".master-only").forEach(x => x.classList.toggle("hide", !isMaster()));
+    listenAll();
+  });
+} else {
+  $("login").insertAdjacentHTML("beforeend", '<p class="warn">Firebase setup is required before sign-in works. Follow SETUP.md.</p>');
+}
+
+$("loginForm").onsubmit = ev => {
+  ev.preventDefault();
+  if (!configured) return toast("Firebase is not configured yet.");
+  busy(ev.submitter, () => signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value));
+};
+$("resetBtn").onclick = ev => {
+  if (!configured) return toast("Configure Firebase first.");
+  if (!$("email").value.trim()) return toast("Enter your email.");
+  busy(ev.currentTarget, async () => { await sendPasswordResetEmail(auth, $("email").value.trim()); toast("Password reset email sent."); });
+};
+$("logoutBtn").onclick = () => signOut(auth);
+document.querySelectorAll("nav [data-tab]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav [data-tab],.tab").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); $(b.dataset.tab).classList.add("active");
+});
+$("console").onchange = () => $("xrateWrap").classList.toggle("hide", $("console").value !== "Xbox");
+$("mapLink").href = MAPS_URL;
+$("qr").src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(MAPS_URL);
+
+function clearListeners() { stopFns.forEach(f => f()); stopFns = []; }
+function listenAll() {
+  clearListeners();
+  const watch = (name, max, cb) => stopFns.push(onSnapshot(
+    query(collection(db, name), orderBy("createdAt", "desc"), limit(max)),
+    s => { cb(s.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))); render(); },
+    e => toast("Sync error: " + friendlyError(e))));
+  watch("sessions", 500, a => sessions = a);
+  watch("vips", 300, a => vips = a);
+  watch("events", 200, a => events = a);
+  if (isMaster()) watch("audit", 200, a => audit = a);
+}
+
+async function log(action, detail) {
+  try { await addDoc(collection(db, "audit"), { action, detail: String(detail).slice(0, 400), actorUid: user.uid, actorName: actorName(), createdAt: serverTimestamp() }); }
+  catch (e) { console.warn("audit log failed", e); }
+}
+
+$("startBtn").onclick = ev => {
+  const player = $("player").value.trim(), c = $("console").value;
+  if (!player) return toast("Enter the player name.");
+  const rate = rateFor(c, new Date(), $("xrate").value);
+  if (!(rate > 0)) return toast("Enter a valid Xbox hourly rate.");
+  busy(ev.currentTarget, async () => {
+    await addDoc(collection(db, "sessions"), {
+      player, console: c, station: $("station").value.trim(), rate, status: "active",
+      createdBy: user.uid, staffName: actorName(),
+      startedAt: serverTimestamp(), createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+    await log("session_start", `${player} • ${c} @ ${money(rate)}/hr`);
+    ["player", "station", "xrate"].forEach(i => $(i).value = "");
+    toast("Session started.");
+  });
+};
+
+const sessionActions = {
+  async finish(s) {
+    const { total } = bill(s, new Date());
+    if (!confirm(`Finish ${s.player}'s session? Amount due ≈ ${money(total)}`)) return;
+    await updateDoc(doc(db, "sessions", s.id), { status: "finished", endedAt: serverTimestamp(), finishedBy: user.uid, updatedAt: serverTimestamp() });
+    await log("session_finish", `${s.player} • ≈${money(total)}`);
+    toast("Session finished. Collect " + money(total) + ".");
+  },
+  async edit(s) {
+    const name = prompt("Edit player name:", s.player);
+    if (name === null || !name.trim()) return;
+    const reason = prompt("Reason for change (required):");
+    if (!reason?.trim()) return toast("A reason is required.");
+    await updateDoc(doc(db, "sessions", s.id), { player: name.trim().slice(0, 80), lastEditedBy: user.uid, lastEditReason: reason.trim().slice(0, 200), updatedAt: serverTimestamp() });
+    await log("session_edit", `${s.player} → ${name.trim()}; ${reason.trim()}`);
+    toast("Session updated.");
+  },
+  async cancel(s) {
+    const reason = prompt("Reason for cancellation (required):");
+    if (!reason?.trim()) return;
+    await updateDoc(doc(db, "sessions", s.id), { status: "cancelled", cancelledAt: serverTimestamp(), cancelReason: reason.trim().slice(0, 200), cancelledBy: user.uid, updatedAt: serverTimestamp() });
+    await log("session_cancel", `${s.player}; ${reason.trim()}`);
+    toast("Session cancelled.");
+  }
+};
+$("activeRows").onclick = ev => {
+  const btn = ev.target.closest("button[data-act]"); if (!btn) return;
+  const s = sessions.find(x => x.id === btn.dataset.id);
+  if (s) busy(btn, () => sessionActions[btn.dataset.act](s));
+};
+
+$("vipBtn").onclick = ev => {
+  const name = $("vn").value.trim(), date = $("vd").value;
+  if (!name || !date) return toast("Enter the customer name and date.");
+  busy(ev.currentTarget, async () => {
+    await addDoc(collection(db, "vips"), { name, phone: $("vp").value.trim(), date, time: $("vt").value, type: $("vtype").value, notes: $("vnotes").value.trim(), createdBy: user.uid, createdAt: serverTimestamp() });
+    await log("vip_created", `${name} • ${date} ${$("vt").value}`);
+    ["vn", "vp", "vd", "vt", "vnotes"].forEach(i => $(i).value = "");
+    toast("VIP booking saved.");
+  });
+};
+$("vipRows").onclick = ev => {
+  const btn = ev.target.closest("button[data-del]"); if (!btn || !isMaster()) return;
+  const v = vips.find(x => x.id === btn.dataset.del);
+  if (v && confirm(`Delete the booking for ${v.name}?`)) busy(btn, async () => { await deleteDoc(doc(db, "vips", v.id)); await log("vip_deleted", `${v.name} • ${v.date}`); });
+};
+
+$("eventBtn").onclick = ev => {
+  const name = $("en").value.trim(), date = $("ed").value;
+  if (!name || !date) return toast("Enter the event name and date.");
+  busy(ev.currentTarget, async () => {
+    await addDoc(collection(db, "events"), { name, game: $("eg").value.trim(), date, time: $("et").value, fee: Math.max(0, Number($("ef").value) || 0), capacity: Math.max(0, Math.floor(Number($("ecap").value) || 0)), details: $("edetail").value.trim(), createdBy: user.uid, createdAt: serverTimestamp() });
+    await log("event_created", `${name} • ${date}`);
+    ["en", "eg", "ed", "et", "ef", "ecap", "edetail"].forEach(i => $(i).value = "");
+    toast("Event saved.");
+  });
+};
+$("eventRows").onclick = ev => {
+  const btn = ev.target.closest("button[data-del]"); if (!btn || !isMaster()) return;
+  const e = events.find(x => x.id === btn.dataset.del);
+  if (e && confirm(`Delete ${e.name}?`)) busy(btn, async () => { await deleteDoc(doc(db, "events", e.id)); await log("event_deleted", `${e.name} • ${e.date}`); });
+};
+
+function render() {
+  if (!user) return;
+  const now = new Date(), today = shopDay(now);
+  const active = sessions.filter(s => s.status === "active");
+  const finished = sessions.filter(s => s.status === "finished" && toDate(s.endedAt));
+  const doneToday = finished.filter(s => shopDay(toDate(s.endedAt)) === today);
+  const upcomingVips = vips.filter(v => v.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+  $("count").textContent = active.length;
+  $("revenue").textContent = money(doneToday.reduce((a, s) => a + bill(s, toDate(s.endedAt)).total, 0));
+  $("vcount").textContent = upcomingVips.length;
+
+  $("activeRows").innerHTML = active.map(s => {
+    const { minutes, total } = bill(s, now), own = s.createdBy === user.uid, id = esc(s.id);
+    const manage = isMaster() || own ? ` <button data-act="edit" data-id="${id}">Edit</button> <button class="danger" data-act="cancel" data-id="${id}">Cancel</button>` : "";
+    return `<tr><td>${esc(s.player)}<br><span class="muted">${esc(s.station)}</span></td><td>${esc(s.console)}</td><td>${timeStr(toDate(s.startedAt))}</td><td>${minutes} min</td><td>${money(s.rate)}</td><td>${money(total)}</td><td class="actions"><button class="primary" data-act="finish" data-id="${id}">Finish</button>${manage}</td></tr>`;
+  }).join("") || '<tr><td colspan="7">No active sessions.</td></tr>';
+
+  $("doneRows").innerHTML = doneToday.map(s => {
+    const end = toDate(s.endedAt), { minutes, total } = bill(s, end);
+    return `<tr><td>${esc(s.player)}</td><td>${esc(s.console)}</td><td>${timeStr(toDate(s.startedAt))} / ${timeStr(end)}</td><td>${Math.floor(minutes / 60)}h ${minutes % 60}m</td><td>${money(total)}</td><td>${esc(s.staffName)}</td></tr>`;
+  }).join("") || '<tr><td colspan="6">No completed sessions today.</td></tr>';
+
+  $("vipRows").innerHTML = upcomingVips.map(v => `<div class="card"><b>${esc(v.name)}</b> • ${esc(v.type)}<p>${esc(v.date)} ${esc(v.time)} • ${esc(v.phone)}</p><p class="muted">${esc(v.notes)}</p>${isMaster() ? `<button class="danger" data-del="${esc(v.id)}">Delete</button>` : ""}</div>`).join("") || '<p class="muted">No upcoming bookings.</p>';
+
+  $("eventRows").innerHTML = events.slice().sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map(e => `<div class="card"><b>${esc(e.name)}</b> <span class="muted">${esc(e.date)} ${esc(e.time)}</span><p>${esc(e.game)} • Entry ${money(e.fee)} • Max players: ${e.capacity ? esc(e.capacity) : "—"}</p><p>${esc(e.details)}</p>${isMaster() ? `<button class="danger" data-del="${esc(e.id)}">Delete</button>` : ""}</div>`).join("") || '<p class="muted">No events registered.</p>';
+
+  if (isMaster()) {
+    $("auditRows").innerHTML = audit.map(a => `<p>${toDate(a.createdAt)?.toLocaleString([], { timeZone: SHOP_TZ }) ?? ""} — <b>${esc(a.action)}</b> — ${esc(a.actorName)}: ${esc(a.detail)}</p>`).join("") || '<p class="muted">No audit entries yet.</p>';
+    const days = {};
+    for (const s of sessions) {
+      const when = toDate(s.status === "finished" ? s.endedAt : s.cancelledAt);
+      if (!when || s.status === "active") continue;
+      const d = days[shopDay(when)] ??= { n: 0, mins: 0, total: 0, cancelled: 0 };
+      if (s.status === "cancelled") { d.cancelled++; continue; }
+      const b = bill(s, when); d.n++; d.mins += b.minutes; d.total += b.total;
+    }
+    $("repRows").innerHTML = Object.keys(days).sort().reverse().map(k => `<tr><td>${k}</td><td>${days[k].n}</td><td>${days[k].mins}</td><td>${money(days[k].total)}</td><td>${days[k].cancelled}</td></tr>`).join("") || '<tr><td colspan="5">No completed sessions yet.</td></tr>';
+  }
+}
+setInterval(render, 15000);
