@@ -1,7 +1,8 @@
 import { chromium } from "playwright";
 import { readFileSync } from "fs";
 const A = new URL("../../app/src/main/assets/", import.meta.url).pathname;
-const js = readFileSync(A + "app.js", "utf8").replace('apiKey: "REPLACE_WITH_FIREBASE_API_KEY"', 'apiKey: "test"');
+const js = readFileSync(A + "app.js", "utf8");
+const cfg = 'export const firebaseConfig = { apiKey: "test" };';
 const fake = readFileSync(new URL("fake-firebase.js", import.meta.url), "utf8");
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const errors = [], results = [];
@@ -11,7 +12,7 @@ async function page(opts) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...opts });
   const p = await ctx.newPage();
   p.on("pageerror", e => errors.push(e.message)); p.on("console", m => m.type() === "error" && errors.push(m.text()));
-  await p.route("https://appassets.androidplatform.net/assets/**", r => { const f = r.request().url().split("/assets/")[1]; r.fulfill({ body: f === "app.js" ? js : readFileSync(A + f), contentType: f.endsWith(".js") ? "text/javascript" : "text/html" }); });
+  await p.route("https://appassets.androidplatform.net/assets/**", r => { const f = r.request().url().split("/assets/")[1]; r.fulfill({ body: f === "app.js" ? js : f === "firebase-config.js" ? cfg : readFileSync(A + f), contentType: f.endsWith(".js") ? "text/javascript" : "text/html" }); });
   await p.route("https://www.gstatic.com/**", r => r.fulfill({ body: fake, contentType: "text/javascript" }));
   await p.route("https://api.qrserver.com/**", r => r.fulfill({ status: 200, body: "" }));
   await p.addInitScript(() => { window.__fb = { docs: {}, listeners: [], authCbs: [], user: null, seq: 0, users: { owner: { role: "master", displayName: "Owner" }, amy: { role: "staff", displayName: "Amy" } } }; });

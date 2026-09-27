@@ -1,16 +1,9 @@
-// Toxic Gaming 2.0 Firebase client. Add your Firebase project's web config below (see SETUP.md).
+// Toxic Gaming shop manager. Runs in the Android app and as the web app, against the same Firebase
+// project. The project settings live in firebase-config.js (see SETUP.md).
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "REPLACE_WITH_FIREBASE_API_KEY",
-  authDomain: "REPLACE_WITH_PROJECT.firebaseapp.com",
-  projectId: "REPLACE_WITH_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_PROJECT.appspot.com",
-  messagingSenderId: "REPLACE_WITH_SENDER_ID",
-  appId: "REPLACE_WITH_APP_ID"
-};
+import { firebaseConfig } from "./firebase-config.js";
 
 // Shop pricing. Keep in sync with validRate() in firestore.rules.
 const SHOP_TZ = "Africa/Harare";
@@ -101,7 +94,7 @@ if (configured) {
     listenAll();
   });
 } else {
-  $("login").insertAdjacentHTML("beforeend", '<p class="warn">Firebase setup is required before sign-in works. Follow SETUP.md.</p>');
+  $("login").insertAdjacentHTML("beforeend", '<p class="warn">Firebase setup is required before sign-in works. Add the Firebase project settings to firebase-config.js (see SETUP.md).</p>');
 }
 
 $("loginForm").onsubmit = ev => {

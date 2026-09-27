@@ -17,10 +17,10 @@ const body = html.match(/<body>([\s\S]*?)<script type="module"/)[1]
   .replace('<p class="muted">Use an account created by the shop owner.</p>',
     '<p class="muted">Test accounts: owner@demo.shop, amy@demo.shop, ben@demo.shop. Password: demo.</p>');
 
-const imports = [...app.matchAll(/^import \{([^}]+)\} from "[^"]+";$/gm)].flatMap(m => m[1].split(",").map(s => s.trim()));
+const imports = [...app.matchAll(/^import \{([^}]+)\} from "https:[^"]+";$/gm)].flatMap(m => m[1].split(",").map(s => s.trim()));
 if (imports.length < 10) throw new Error("Could not find the Firebase imports in app.js");
-const appCode = app.replace(/^import .*$/gm, "").replace('apiKey: "REPLACE_WITH_FIREBASE_API_KEY"', 'apiKey: "demo"');
-if (appCode.includes('apiKey: "REPLACE_')) throw new Error("apiKey placeholder not found");
+const appCode = app.replace(/^import .*$/gm, "");
+if (!/^import \{ firebaseConfig \} from "\.\/firebase-config\.js";$/m.test(app)) throw new Error("firebase-config import not found in app.js");
 
 const page = `<title>Toxic Gaming Test Drive</title>
 <style>${css}</style>
@@ -29,6 +29,7 @@ ${body}
 <script type="module">
 ${read("backend.js")}
 const { ${imports.join(", ")} } = FB;
+const firebaseConfig = { apiKey: "demo" };
 ${appCode}
 ${read("bench.js")}
 </script>

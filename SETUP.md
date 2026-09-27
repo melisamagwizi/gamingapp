@@ -20,7 +20,7 @@
 2. Enable **Authentication → Sign-in method → Email/Password**.
 3. Create a **Cloud Firestore** database.
 4. In **Project settings → General → Your apps**, add a Web app and copy its Firebase config.
-5. Edit `app/src/main/assets/app.js` and replace each `REPLACE_...` value in `firebaseConfig`.
+5. Edit `app/src/main/assets/firebase-config.js` and replace each `REPLACE_...` value. This one file is used by both the Android app and the web app, so they share the same backend.
 6. Publish the security rules: paste `firestore.rules` into **Firestore Database → Rules** and publish,
    or run `firebase deploy --only firestore:rules` from this folder.
 7. In **Authentication**, create an account for each master and each staff member.
@@ -29,6 +29,14 @@
    - Staff:  `{ "role": "staff", "displayName": "Staff Name" }`
    Roles can only be assigned from the Firebase Console / Admin SDK. The app cannot assign roles.
 9. Build and install the APK on each shop phone (below) and sign in.
+
+## Web app
+The web app is the same code as the Android app (`app/src/main/assets/`), hosted on Vercel. It uses the same
+`firebase-config.js`, so staff on the web and on phones see the same sessions, bookings and events live.
+- `vercel.json` publishes `app/src/main/assets` with security headers. With the GitHub repository connected
+  to the Vercel project, every push redeploys the web app automatically.
+- In Firebase **Authentication → Settings → Authorized domains**, add the web app's domain (for example
+  `toxic-gaming.vercel.app`) and `appassets.androidplatform.net` (used inside the Android app).
 
 ## Get the APK
 **Option A — GitHub (no tools needed).** Every push runs the *Build & test* workflow. Open the repository's

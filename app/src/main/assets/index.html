@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Toxic Gaming 2.0</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Toxic Gaming</title>
 <style>
 :root{--bg:#080b09;--p:#111914;--g:#39ff14;--mut:#a0afa3;--line:#2b3d2e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f2fff3;font:15px system-ui,Arial,sans-serif}
 header{padding:20px;background:linear-gradient(130deg,#0a130c,#15251a);border-bottom:1px solid var(--line)}h1,h2,h3{color:var(--g)}h1{margin:0;letter-spacing:2px}header p{color:var(--mut);margin:5px 0}
@@ -20,7 +20,7 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;bord
 <section id="login" class="card"><h2>Sign in</h2><p class="muted">Use an account created by the shop owner.</p>
 <form id="loginForm"><label for="email">Email</label><input id="email" type="email" autocomplete="username"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password">
 <p class="actions"><button class="primary" type="submit">Sign in</button> <button type="button" id="resetBtn">Reset password</button></p></form>
-<p class="muted">First-time setup: configure Firebase in app.js, create accounts in Firebase Authentication and assign roles in Firestore (see SETUP.md).</p></section>
+<p class="muted">First-time setup: add your Firebase project settings to firebase-config.js, create accounts in Firebase Authentication and assign roles in Firestore (see SETUP.md).</p></section>
 
 <div id="appUI" class="hide">
 <nav id="nav"><button class="active" data-tab="dash">Dashboard</button><button data-tab="sessions">Sessions</button><button data-tab="vip">VIP bookings</button><button data-tab="events">Events</button><button data-tab="payments">Payments & location</button><button data-tab="staff" class="master-only">Audit</button><button data-tab="reports" class="master-only">Reports</button><button id="logoutBtn">Sign out</button></nav>
