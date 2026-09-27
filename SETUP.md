@@ -31,12 +31,13 @@
 9. Build and install the APK on each shop phone (below) and sign in.
 
 ## Web app
-The web app is the same code as the Android app (`app/src/main/assets/`), hosted on Vercel. It uses the same
+Live at **https://toxic-gaming-c3cb3.web.app** (Firebase Hosting, project `toxic-gaming-c3cb3`).
+The web app is the same code as the Android app (`app/src/main/assets/`) and uses the same
 `firebase-config.js`, so staff on the web and on phones see the same sessions, bookings and events live.
-- `vercel.json` publishes `app/src/main/assets` with security headers. With the GitHub repository connected
-  to the Vercel project, every push redeploys the web app automatically.
-- In Firebase **Authentication → Settings → Authorized domains**, add the web app's domain (for example
-  `toxic-gaming.vercel.app`) and `appassets.androidplatform.net` (used inside the Android app).
+- Redeploy after changing the app: `firebase deploy --only hosting` (rules: `firebase deploy --only firestore:rules`).
+- Authorized domains already include `toxic-gaming-c3cb3.web.app` and `appassets.androidplatform.net`
+  (used inside the Android app).
+- `vercel.json` and `.github/workflows/web.yml` are alternatives (Vercel or GitHub Pages) if you move hosting.
 
 ## Get the APK
 **Option A — GitHub (no tools needed).** Every push runs the *Build & test* workflow. Open the repository's
