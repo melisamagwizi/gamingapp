@@ -2,11 +2,9 @@ name: Deploy web app
 
 # Publishes the same UI the Android app bundles (app/src/main/assets) to GitHub Pages.
 # Both clients read firebase-config.js, so they share one Firebase backend.
+# Optional alternative to Firebase Hosting (the live web app). Manual run only.
 # One-time setup: repository Settings → Pages → Source: "GitHub Actions".
 on:
-  push:
-    branches: [main, claude/code-review-app-build-x4fcon]
-    paths: ["app/src/main/assets/**", ".github/workflows/web.yml"]
   workflow_dispatch:
 
 permissions:
