@@ -10,8 +10,8 @@ android {
         applicationId 'com.toxicgaming.app'
         minSdk 23
         targetSdk 35
-        versionCode 4
-        versionName '2.1'
+        versionCode 5
+        versionName '2.2'
     }
 
     // Fixed debug key so each new APK installs over the previous one (CI runners otherwise
